@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>打字太空冒險 Typing Space Adventure</title>
+  <meta name="description" content="適合小朋友的中英雙語打字練習遊戲，可在手機、平板與電腦上遊玩。" />
+
+  <!-- iOS 加到主畫面像 App 一樣 -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="打字冒險" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#0b1026" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icon.svg" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+
+  <link rel="stylesheet" href="style.css?v=20260904b" />
+</head>
+<body>
+  <div id="stars"></div>
+
+  <!-- 開始畫面 -->
+  <section id="screen-start" class="screen active">
+    <div class="panel">
+      <h1 class="title">🚀 打字太空冒險</h1>
+      <p class="subtitle">Typing Space Adventure</p>
+      <p class="tagline">打出掉落的單字與句子，保護你的太空船！邊玩邊背英文 💫</p>
+
+      <div class="field">
+        <label>選擇單字表 Word List（依年級）</label>
+        <div class="btn-group grade-grid" id="grade-group">
+          <button class="chip accent" data-grade="letters">字母練習</button>
+          <button class="chip active" data-grade="g1">一年級</button>
+          <button class="chip" data-grade="g2">二年級</button>
+          <button class="chip" data-grade="g3">三年級</button>
+          <button class="chip" data-grade="g4">四年級</button>
+          <button class="chip" data-grade="g5">五年級</button>
+          <button class="chip" data-grade="g6">六年級</button>
+          <button class="chip" data-grade="all">全部混合</button>
+          <button class="chip" data-grade="custom">自訂單字</button>
+        </div>
+        <p class="grade-desc" id="grade-desc"></p>
+      </div>
+
+      <div class="field">
+        <label>難易度 Difficulty <strong id="diff-label">Lv.3</strong></label>
+        <div class="slider-wrap">
+          <span class="slider-end">簡單</span>
+          <input type="range" id="difficulty-slider" class="diff-slider" min="1" max="10" step="1" value="3" />
+          <span class="slider-end">困難</span>
+        </div>
+        <p class="grade-desc" id="diff-desc">單字為主，掉落較慢</p>
+      </div>
+
+      <div class="field">
+        <label>顯示中文提示 Chinese Hint</label>
+        <div class="btn-group" id="hint-group">
+          <button class="chip active" data-hint="on">開 On</button>
+          <button class="chip" data-hint="off">關 Off</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>分數越高越快 Speed Up</label>
+        <div class="btn-group" id="speedup-group">
+          <button class="chip active" data-speedup="on">開 On</button>
+          <button class="chip" data-speedup="off">關 Off</button>
+        </div>
+        <p class="grade-desc">開：分數升高會慢慢加快；關：全程維持選定難度速度</p>
+      </div>
+
+      <button id="btn-start" class="big-btn">開始遊戲 ▶</button>
+      <button id="btn-manage" class="ghost-btn">📝 管理單字表</button>
+      <p class="hint-text">💡 可先選「字母練習」熟悉鍵盤位置。打字消單字／句子；火箭會自動對準。空白鍵：若下一個是空格就打空格，否則發射飛彈。</p>
+    </div>
+  </section>
+
+  <!-- 遊戲畫面 -->
+  <section id="screen-game" class="screen">
+    <header class="hud">
+      <div class="hud-item">分數<br><span id="score">0</span></div>
+      <div class="hud-item">關卡<br><span id="stage">1</span></div>
+      <div class="hud-item">連擊<br><span id="combo">x1</span></div>
+      <div class="hud-item lives" id="lives">❤️❤️❤️</div>
+      <button id="btn-pause" class="icon-btn" aria-label="暫停">⏸</button>
+    </header>
+
+    <div id="playfield">
+      <div id="ship">🚀</div>
+      <div id="power-badge" class="power-badge" hidden></div>
+    </div>
+
+    <!-- 發射（觸控） -->
+    <div id="ship-controls" class="ship-controls">
+      <button type="button" id="btn-fire" class="ctrl-btn fire wide" aria-label="發射">🔥 發射飛彈</button>
+    </div>
+
+    <!-- 螢幕虛擬鍵盤 -->
+    <div id="keyboard" aria-hidden="true"></div>
+  </section>
+
+  <!-- 暫停畫面 -->
+  <section id="screen-pause" class="screen overlay">
+    <div class="panel">
+      <h2>遊戲暫停</h2>
+      <button id="btn-resume" class="big-btn">繼續遊戲 ▶</button>
+      <button id="btn-quit" class="ghost-btn">回到主選單</button>
+    </div>
+  </section>
+
+  <!-- 結束畫面 -->
+  <section id="screen-over" class="screen overlay">
+    <div class="panel wide">
+      <h2>🎉 遊戲結束</h2>
+      <div class="result">
+        <div class="result-row"><span>總分</span><strong id="final-score">0</strong></div>
+        <div class="result-row"><span>打對單字</span><strong id="final-words">0</strong></div>
+        <div class="result-row"><span>最高連擊</span><strong id="final-combo">0</strong></div>
+        <div class="result-row"><span>正確率</span><strong id="final-acc">100%</strong></div>
+        <div class="result-row best"><span>最佳紀錄</span><strong id="best-score">0</strong></div>
+      </div>
+
+      <div class="field" id="name-entry">
+        <label>輸入姓名登上排行榜</label>
+        <div class="add-inputs">
+          <input id="player-name" class="input" type="text" maxlength="12" placeholder="你的名字（最多 12 字）" autocomplete="nickname" />
+          <button id="btn-save-score" class="mini-btn primary">🏆 登錄成績</button>
+        </div>
+        <p class="grade-desc" id="save-status"></p>
+      </div>
+
+      <div class="leaderboard">
+        <h3>🏆 排行榜 Top 10</h3>
+        <ol id="leaderboard-list" class="lb-list"></ol>
+      </div>
+
+      <button id="btn-again" class="big-btn">再玩一次 🔄</button>
+      <button id="btn-menu" class="ghost-btn">回到主選單</button>
+    </div>
+  </section>
+
+  <!-- 單字表管理畫面 -->
+  <section id="screen-manage" class="screen">
+    <div class="panel wide">
+      <h2>📝 管理單字表</h2>
+
+      <div class="field">
+        <label>選擇要編輯的年級 Grade</label>
+        <select id="manage-grade" class="select"></select>
+        <p class="grade-desc" id="manage-info"></p>
+      </div>
+
+      <!-- 手動新增單一單字 -->
+      <div class="field add-row">
+        <label>新增單字（手動 / 自動翻譯）</label>
+        <div class="add-inputs">
+          <input id="add-en" class="input" type="text" placeholder="英文 English" autocapitalize="off" autocomplete="off" />
+          <input id="add-zh" class="input" type="text" placeholder="中文（可留空自動翻譯）" />
+          <button id="btn-translate" class="mini-btn" title="自動抓取中文翻譯">🌐 翻譯</button>
+          <button id="btn-add" class="mini-btn primary">＋ 新增</button>
+        </div>
+        <p class="grade-desc" id="add-status"></p>
+      </div>
+
+      <!-- 批次匯入 -->
+      <details class="bulk">
+        <summary>📥 批次匯入 / 自動抓取多個單字</summary>
+        <p class="grade-desc">每行一個單字，可用 <code>apple,蘋果</code> 或只寫 <code>apple</code>（勾選自動翻譯即可補上中文）。也支援貼上 JSON。</p>
+        <textarea id="bulk-text" class="textarea" placeholder="apple,蘋果&#10;banana,香蕉&#10;tiger"></textarea>
+        <label class="checkbox"><input type="checkbox" id="bulk-auto" checked /> 自動翻譯沒有中文的單字</label>
+        <div class="add-inputs">
+          <button id="btn-bulk" class="mini-btn primary">匯入</button>
+          <button id="btn-export" class="mini-btn">📤 匯出此表</button>
+        </div>
+        <p class="grade-desc" id="bulk-status"></p>
+      </details>
+
+      <!-- 單字清單 -->
+      <div class="word-list" id="word-list"></div>
+
+      <button id="btn-manage-back" class="ghost-btn">← 回主選單</button>
+    </div>
+  </section>
+
+  <script src="words.js?v=20260902c"></script>
+  <script src="sentences.js?v=20260727b"></script>
+  <script src="game.js?v=20260904c"></script>
+</body>
+</html>
