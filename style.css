@@ -307,6 +307,13 @@ html, body {
   color: #0b1026;
   max-width: 140px;
 }
+.ctrl-btn.fire.empty,
+.ctrl-btn.fire:disabled {
+  background: rgba(80, 80, 100, 0.55);
+  color: #bbb;
+  opacity: 0.75;
+  cursor: not-allowed;
+}
 .key.space {
   flex: 1;
   max-width: none;
@@ -417,6 +424,18 @@ html, body {
   border-color: #4ade80;
   box-shadow: 0 0 12px rgba(74, 222, 128, 0.35);
 }
+.profile-row { display: flex; flex-direction: column; gap: 10px; }
+.profile-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.profile-chips .chip { min-width: 64px; }
+.profile-add { display: flex; gap: 8px; align-items: center; }
+.profile-add .input { flex: 1; min-width: 0; }
+.ghost-btn.compact {
+  width: auto;
+  padding: 10px 14px;
+  margin: 0;
+  font-size: 14px;
+  white-space: nowrap;
+}
 .grade-desc { color: var(--muted); font-size: 13px; margin: 8px 2px 0; line-height: 1.5; min-height: 18px; }
 .grade-desc code {
   background: rgba(108, 140, 255, 0.2);
@@ -475,8 +494,6 @@ html, body {
   font-weight: 800;
   color: var(--accent2);
   background: rgba(108, 140, 255, 0.12);
-  position: sticky;
-  top: 0;
 }
 .wl-item {
   display: flex;

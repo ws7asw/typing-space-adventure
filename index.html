@@ -16,7 +16,7 @@
   <link rel="apple-touch-icon" href="icon.svg" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
 
-  <link rel="stylesheet" href="style.css?v=20260904b" />
+  <link rel="stylesheet" href="style.css?v=20260906b" />
 </head>
 <body>
   <div id="stars"></div>
@@ -27,6 +27,18 @@
       <h1 class="title">🚀 打字太空冒險</h1>
       <p class="subtitle">Typing Space Adventure</p>
       <p class="tagline">打出掉落的單字與句子，保護你的太空船！邊玩邊背英文 💫</p>
+
+      <div class="field">
+        <label>誰在玩？ Player Profile</label>
+        <div class="profile-row">
+          <div class="btn-group profile-chips" id="profile-group"></div>
+          <div class="profile-add">
+            <input type="text" id="profile-name-input" class="input" maxlength="12" placeholder="輸入名字" autocomplete="off" />
+            <button type="button" id="btn-add-profile" class="ghost-btn compact">＋新增</button>
+          </div>
+        </div>
+        <p class="grade-desc" id="profile-desc">每位小朋友的自訂單字與排行榜各自獨立，存在自己的手機／電腦裡。</p>
+      </div>
 
       <div class="field">
         <label>選擇單字表 Word List（依年級）</label>
@@ -73,7 +85,7 @@
 
       <button id="btn-start" class="big-btn">開始遊戲 ▶</button>
       <button id="btn-manage" class="ghost-btn">📝 管理單字表</button>
-      <p class="hint-text">💡 可先選「字母練習」熟悉鍵盤位置。打字消單字／句子；火箭會自動對準。空白鍵：若下一個是空格就打空格，否則發射飛彈。</p>
+      <p class="hint-text">💡 可先選「字母練習」熟悉鍵盤位置。打字消單字／句子；火箭會自動對準。空白鍵／發射鈕：緊急飛彈，每局只有 3 發，用完就沒了，危急時再使用！</p>
     </div>
   </section>
 
@@ -83,18 +95,18 @@
       <div class="hud-item">分數<br><span id="score">0</span></div>
       <div class="hud-item">關卡<br><span id="stage">1</span></div>
       <div class="hud-item">連擊<br><span id="combo">x1</span></div>
+      <div class="hud-item">飛彈<br><span id="missile-ammo">🔥🔥🔥</span></div>
       <div class="hud-item lives" id="lives">❤️❤️❤️</div>
       <button id="btn-pause" class="icon-btn" aria-label="暫停">⏸</button>
     </header>
 
     <div id="playfield">
       <div id="ship">🚀</div>
-      <div id="power-badge" class="power-badge" hidden></div>
     </div>
 
-    <!-- 發射（觸控） -->
+    <!-- 發射（觸控）：每局只有 3 發緊急飛彈 -->
     <div id="ship-controls" class="ship-controls">
-      <button type="button" id="btn-fire" class="ctrl-btn fire wide" aria-label="發射">🔥 發射飛彈</button>
+      <button type="button" id="btn-fire" class="ctrl-btn fire wide" aria-label="發射">🔥 緊急飛彈 ×3</button>
     </div>
 
     <!-- 螢幕虛擬鍵盤 -->
@@ -145,6 +157,7 @@
   <section id="screen-manage" class="screen">
     <div class="panel wide">
       <h2>📝 管理單字表</h2>
+      <p class="grade-desc" id="manage-profile-label">目前檔案：預設</p>
 
       <div class="field">
         <label>選擇要編輯的年級 Grade</label>
@@ -186,6 +199,6 @@
 
   <script src="words.js?v=20260902c"></script>
   <script src="sentences.js?v=20260727b"></script>
-  <script src="game.js?v=20260904c"></script>
+  <script src="game.js?v=20260906b"></script>
 </body>
 </html>

@@ -13,25 +13,153 @@
   const ship = $("ship");
   const keyboardEl = $("keyboard");
   const shipControls = $("ship-controls");
-  const powerBadge = $("power-badge");
   const scoreEl = $("score");
   const stageEl = $("stage");
   const comboEl = $("combo");
   const livesEl = $("lives");
+  const missileAmmoEl = $("missile-ammo");
+  const btnFire = $("btn-fire");
 
-  // ---------- 自訂單字資料層 (localStorage) ----------
-  const STORE_KEY = "typingGameCustom_v1";
-  function loadCustom() {
-    try {
-      const raw = localStorage.getItem(STORE_KEY);
-      if (raw) return JSON.parse(raw);
-    } catch (e) {}
+  // ---------- 小朋友檔案（本機分開存，不是共用資料庫） ----------
+  const PROFILES_KEY = "typingGameProfiles_v1";
+  const LEGACY_CUSTOM_KEY = "typingGameCustom_v1";
+  const LEGACY_LB_KEY = "typingGameLeaderboard_v1";
+
+  function emptyCustom() {
     return { g1: [], g2: [], g3: [], g4: [], g5: [], g6: [], custom: [] };
   }
+  function uid() {
+    return "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  }
+  function loadProfilesMeta() {
+    try {
+      const raw = localStorage.getItem(PROFILES_KEY);
+      if (raw) {
+        const data = JSON.parse(raw);
+        if (data && Array.isArray(data.list) && data.list.length) return data;
+      }
+    } catch (e) {}
+    // 遷移舊版（無檔案）資料到「預設」
+    const id = uid();
+    const meta = { currentId: id, list: [{ id, name: "預設" }] };
+    try {
+      const oldCustom = localStorage.getItem(LEGACY_CUSTOM_KEY);
+      if (oldCustom) localStorage.setItem(customKey(id), oldCustom);
+      const oldLb = localStorage.getItem(LEGACY_LB_KEY);
+      if (oldLb) localStorage.setItem(lbKey(id), oldLb);
+      const oldBest = localStorage.getItem("bestScore");
+      if (oldBest) localStorage.setItem(bestKey(id), oldBest);
+      const oldName = localStorage.getItem("lastPlayerName");
+      if (oldName) localStorage.setItem(nameKey(id), oldName);
+    } catch (e) {}
+    saveProfilesMeta(meta);
+    return meta;
+  }
+  function saveProfilesMeta(meta) {
+    try { localStorage.setItem(PROFILES_KEY, JSON.stringify(meta)); } catch (e) {}
+  }
+  function customKey(id) { return "typingGameCustom_v1__" + id; }
+  function lbKey(id) { return "typingGameLeaderboard_v1__" + id; }
+  function bestKey(id) { return "bestScore__" + id; }
+  function nameKey(id) { return "lastPlayerName__" + id; }
+
+  let profilesMeta = loadProfilesMeta();
+  function currentProfile() {
+    return profilesMeta.list.find((p) => p.id === profilesMeta.currentId) || profilesMeta.list[0];
+  }
+  function currentProfileId() {
+    return currentProfile().id;
+  }
+
+  function loadCustom() {
+    try {
+      const raw = localStorage.getItem(customKey(currentProfileId()));
+      if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    return emptyCustom();
+  }
   function saveCustom(data) {
-    try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); } catch (e) {}
+    try { localStorage.setItem(customKey(currentProfileId()), JSON.stringify(data)); } catch (e) {}
   }
   let customData = loadCustom();
+
+  function switchProfile(id) {
+    if (!profilesMeta.list.some((p) => p.id === id)) return;
+    profilesMeta.currentId = id;
+    saveProfilesMeta(profilesMeta);
+    customData = loadCustom();
+    refreshProfileUI();
+    refreshGradeDesc();
+  }
+  function addProfile(name) {
+    const n = String(name || "").trim().slice(0, 12);
+    if (!n) { alert("請輸入小朋友的名字"); return; }
+    if (profilesMeta.list.some((p) => p.name === n)) {
+      alert("已經有這個名字了，請換一個");
+      return;
+    }
+    const id = uid();
+    profilesMeta.list.push({ id, name: n });
+    profilesMeta.currentId = id;
+    saveProfilesMeta(profilesMeta);
+    customData = emptyCustom();
+    saveCustom(customData);
+    refreshProfileUI();
+    refreshGradeDesc();
+  }
+  function deleteProfile(id) {
+    if (profilesMeta.list.length <= 1) {
+      alert("至少要保留一個檔案");
+      return;
+    }
+    const p = profilesMeta.list.find((x) => x.id === id);
+    if (!p || !confirm(`確定刪除「${p.name}」的檔案？自訂單字與排行榜會一起刪除。`)) return;
+    try {
+      localStorage.removeItem(customKey(id));
+      localStorage.removeItem(lbKey(id));
+      localStorage.removeItem(bestKey(id));
+      localStorage.removeItem(nameKey(id));
+    } catch (e) {}
+    profilesMeta.list = profilesMeta.list.filter((x) => x.id !== id);
+    if (profilesMeta.currentId === id) profilesMeta.currentId = profilesMeta.list[0].id;
+    saveProfilesMeta(profilesMeta);
+    customData = loadCustom();
+    refreshProfileUI();
+    refreshGradeDesc();
+  }
+  function refreshProfileUI() {
+    const group = $("profile-group");
+    if (!group) return;
+    const cur = currentProfile();
+    group.innerHTML = "";
+    profilesMeta.list.forEach((p) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "chip" + (p.id === cur.id ? " active" : "");
+      btn.textContent = p.name;
+      btn.dataset.profile = p.id;
+      btn.addEventListener("click", () => switchProfile(p.id));
+      btn.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        deleteProfile(p.id);
+      });
+      // 長按刪除（觸控）
+      let holdTimer = null;
+      btn.addEventListener("pointerdown", () => {
+        holdTimer = setTimeout(() => deleteProfile(p.id), 700);
+      });
+      btn.addEventListener("pointerup", () => clearTimeout(holdTimer));
+      btn.addEventListener("pointerleave", () => clearTimeout(holdTimer));
+      btn.addEventListener("pointercancel", () => clearTimeout(holdTimer));
+      group.appendChild(btn);
+    });
+    const desc = $("profile-desc");
+    if (desc) {
+      desc.textContent = `目前：${cur.name}。不同手機本來就分開；同一台也可建多個檔案。長按名字可刪除。`;
+    }
+    const manageTitle = $("manage-profile-label");
+    if (manageTitle) manageTitle.textContent = `目前檔案：${cur.name}`;
+  }
 
   // 字母練習：a–z 單一字母，提示鍵盤排位與指法
   const LETTER_HINTS = {
@@ -91,6 +219,7 @@
     missiles: [],
     shipX: 50,
     fireCooldown: 0,
+    missilesLeft: 3,
     spawnTimer: 0, spawnInterval: 2400, fallSpeed: 30,
     baseFallSpeed: 30, baseSpawnInterval: 2400,
     lastSpeedStage: 0,
@@ -98,6 +227,15 @@
   };
   const SHIP_SPEED = 70; // % / 秒（自動追蹤）
   const FIRE_COOLDOWN = 0.28;
+  const MISSILE_MAX = 3;
+
+  // 緊急飛彈：固定威力，每局限 3 發（不升級）
+  function missilePower() {
+    return {
+      tier: 1, speed: 520, hitW: 10, pierce: 1, splash: 0,
+      count: 1, emoji: "🔥", label: "緊急飛彈", color: "#ff9f1c",
+    };
+  }
 
   /** 依分數計算目標速度（分數越高越快，平滑上限） */
   function speedFromScore(score, baseFall, baseSpawn) {
@@ -163,16 +301,7 @@
     return "長句為主、掉落很快，高手挑戰！句子約 " + Math.round(Math.min(0.72, chance) * 100) + "%";
   }
 
-  // 答對次數（消除目標數）→ 飛彈威力
-  function missilePower() {
-    const n = state.wordsCleared;
-    if (n >= 20) return { tier: 5, speed: 1000, hitW: 26, pierce: 4, splash: 22, count: 5, emoji: "💫", label: "ULTIMA ×" + n, color: "#ff4d6d" };
-    if (n >= 14) return { tier: 4, speed: 900, hitW: 20, pierce: 3, splash: 16, count: 3, emoji: "💥", label: "MEGA ×" + n, color: "#ff6b9d" };
-    if (n >= 9)  return { tier: 3, speed: 760, hitW: 14, pierce: 2, splash: 10, count: 2, emoji: "⚡", label: "LASER ×" + n, color: "#c77dff" };
-    if (n >= 5)  return { tier: 2, speed: 600, hitW: 10, pierce: 1, splash: 0,  count: 1, emoji: "🔥", label: "FIRE ×" + n, color: "#ff9f1c" };
-    if (n >= 2)  return { tier: 2, speed: 520, hitW: 8,  pierce: 1, splash: 0,  count: 1, emoji: "✦", label: "BOOST ×" + n, color: "#ffd166" };
-    return         { tier: 1, speed: 440, hitW: 7,  pierce: 1, splash: 0,  count: 1, emoji: "•", label: "SHOT", color: "#9ec5ff" };
-  }
+  // （舊的答對升級飛彈已移除；改為每局固定 3 發緊急飛彈）
 
   // ---------- 音效 ----------
   let audioCtx = null;
@@ -272,6 +401,17 @@
   $("btn-quit").addEventListener("click", quitToMenu);
   $("btn-again").addEventListener("click", startGame);
   $("btn-menu").addEventListener("click", quitToMenu);
+  $("btn-add-profile").addEventListener("click", () => {
+    const input = $("profile-name-input");
+    addProfile(input.value);
+    input.value = "";
+  });
+  $("profile-name-input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      $("btn-add-profile").click();
+    }
+  });
 
   // ---------- 虛擬鍵盤 ----------
   const keyElements = {};
@@ -327,7 +467,7 @@
       running: true, paused: false, score: 0, stage: 1, lives: 3,
       combo: 0, maxCombo: 0, wordsCleared: 0, keysTyped: 0, keysCorrect: 0,
       words: [], active: null, pool, missiles: [],
-      shipX: 50, fireCooldown: 0,
+      shipX: 50, fireCooldown: 0, missilesLeft: MISSILE_MAX,
       spawnTimer: 0,
       spawnInterval: sp.spawnInterval,
       fallSpeed: sp.fallSpeed,
@@ -339,7 +479,7 @@
     document.querySelectorAll(".word, .particle, .floaty, .missile, .missile-beam").forEach((el) => el.remove());
     placeShip();
     updateHUD();
-    updatePowerBadge();
+    updateMissileUI();
     show("game");
     shipControls.classList.add("show");
     // 字母練習／有句子／觸控時顯示鍵盤，方便對照位置
@@ -370,7 +510,6 @@
     screens.pause.classList.remove("active");
     keyboardEl.classList.remove("show");
     shipControls.classList.remove("show");
-    powerBadge.hidden = true;
     refreshGradeDesc();
     show("start");
   }
@@ -379,77 +518,70 @@
     ship.style.left = state.shipX + "%";
   }
 
-  function updatePowerBadge() {
-    const p = missilePower();
-    if (state.wordsCleared >= 2) {
-      powerBadge.hidden = false;
-      powerBadge.textContent = p.emoji + " " + p.label;
-      powerBadge.style.color = p.color;
-      powerBadge.style.borderColor = p.color;
-      powerBadge.style.left = state.shipX + "%";
-    } else {
-      powerBadge.hidden = true;
+  function updateMissileUI() {
+    const n = Math.max(0, state.missilesLeft | 0);
+    missileAmmoEl.textContent = n > 0 ? "🔥".repeat(n) : "—";
+    if (btnFire) {
+      btnFire.disabled = n <= 0;
+      btnFire.textContent = n > 0 ? `🔥 緊急飛彈 ×${n}` : "飛彈用完了";
+      btnFire.classList.toggle("empty", n <= 0);
     }
   }
 
-  /** 發射飛彈；homePos = {x,y} 時為導向（打字消除用，純特效） */
+  /** 發射飛彈；homePos = {x,y} 時為導向（打字消除用，純特效，不耗彈） */
   function fireMissile(opts) {
     opts = opts || {};
     if (!state.running || state.paused) return;
     if (!opts.cosmetic && state.fireCooldown > 0) return;
+
+    // 真發射：每局限 3 發
+    if (!opts.cosmetic) {
+      if (state.missilesLeft <= 0) {
+        sfx.wrong();
+        showBanner("飛彈用完了！只能靠打字 💪");
+        updateMissileUI();
+        return;
+      }
+      state.missilesLeft--;
+      updateMissileUI();
+    }
 
     const power = missilePower();
     const pfH = playfield.clientHeight;
     const startY = pfH - 52;
     const startXpct = state.shipX;
 
-    const count = opts.cosmetic ? 1 : power.count;
-    const spreads = count === 1 ? [0]
-      : count === 2 ? [-5, 5]
-      : count === 3 ? [-9, 0, 9]
-      : [-12, -6, 0, 6, 12];
+    const el = document.createElement("div");
+    el.className = "missile tier1";
+    el.textContent = power.emoji;
+    el.style.left = startXpct + "%";
+    el.style.top = startY + "px";
+    el.style.color = power.color;
+    playfield.appendChild(el);
 
-    spreads.forEach((dx, i) => {
-      const el = document.createElement("div");
-      el.className = "missile tier" + Math.min(4, power.tier);
-      el.textContent = power.emoji;
-      el.style.left = (startXpct + dx) + "%";
-      el.style.top = startY + "px";
-      el.style.color = power.color;
-      playfield.appendChild(el);
-
-      let beam = null;
-      if (power.tier >= 3) {
-        beam = document.createElement("div");
-        beam.className = "missile-beam";
-        beam.style.left = (startXpct + dx) + "%";
-        beam.style.bottom = "52px";
-        beam.style.height = "36px";
-        beam.style.background = power.color;
-        beam.style.color = power.color;
-        playfield.appendChild(beam);
-      }
-
-      const isCenter = i === Math.floor(count / 2);
-      state.missiles.push({
-        el, beam,
-        x: startXpct + dx,
-        y: startY,
-        vx: dx * 0.4,
-        speed: power.speed * (opts.cosmetic ? 1.35 : 1),
-        hitW: power.hitW,
-        pierce: isCenter ? power.pierce : 1,
-        splash: isCenter ? power.splash : 0,
-        tier: power.tier,
-        color: power.color,
-        hitIds: new Set(),
-        home: opts.homePos || null,
-        cosmetic: !!opts.cosmetic,
-      });
+    state.missiles.push({
+      el, beam: null,
+      x: startXpct,
+      y: startY,
+      vx: 0,
+      speed: power.speed * (opts.cosmetic ? 1.35 : 1),
+      hitW: power.hitW,
+      pierce: 1,
+      splash: 0,
+      tier: 1,
+      color: power.color,
+      hitIds: new Set(),
+      home: opts.homePos || null,
+      cosmetic: !!opts.cosmetic,
     });
 
-    if (!opts.cosmetic) state.fireCooldown = FIRE_COOLDOWN;
-    sfx.fire(Math.min(4, power.tier));
+    if (!opts.cosmetic) {
+      state.fireCooldown = FIRE_COOLDOWN;
+      if (state.missilesLeft === 0) {
+        showBanner("飛彈用完了！危急時才用喔");
+      }
+    }
+    sfx.fire(1);
   }
 
   function destroyMissile(m) {
@@ -621,8 +753,7 @@
   }
   function wrongKey() {
     state.combo = 0;
-    comboEl.textContent = "x1";
-    updatePowerBadge();
+    updateHUD();
     sfx.wrong();
   }
   function updateCursor(w) { w.letters.forEach((l, i) => l.classList.toggle("cur", i === w.typed)); }
@@ -652,7 +783,6 @@
 
     applyScoreSpeed(false);
     updateHUD();
-    updatePowerBadge();
     highlightNextKey();
   }
 
@@ -665,7 +795,6 @@
     setTimeout(() => ship.classList.remove("hit"), 400);
     sfx.hurt();
     updateHUD();
-    updatePowerBadge();
     highlightNextKey();
     if (state.lives <= 0) gameOver();
   }
@@ -761,7 +890,6 @@
         const maxStep = SHIP_SPEED * dt;
         state.shipX = Math.max(6, Math.min(94, state.shipX + Math.sign(dx) * Math.min(Math.abs(dx), maxStep)));
         placeShip();
-        if (!powerBadge.hidden) powerBadge.style.left = state.shipX + "%";
       }
     }
     if (state.fireCooldown > 0) state.fireCooldown -= dt;
@@ -792,13 +920,13 @@
     cancelAnimationFrame(state.rafId);
     keyboardEl.classList.remove("show");
     shipControls.classList.remove("show");
-    powerBadge.hidden = true;
     document.querySelectorAll(".missile, .missile-beam").forEach((el) => el.remove());
     state.missiles = [];
 
     const acc = state.keysTyped > 0 ? Math.round((state.keysCorrect / state.keysTyped) * 100) : 100;
-    const best = Math.max(state.score, parseInt(localStorage.getItem("bestScore") || "0", 10));
-    localStorage.setItem("bestScore", best);
+    const pid = currentProfileId();
+    const best = Math.max(state.score, parseInt(localStorage.getItem(bestKey(pid)) || "0", 10));
+    localStorage.setItem(bestKey(pid), best);
 
     state.lastResult = {
       score: state.score,
@@ -822,7 +950,7 @@
       : "這次沒有分數，再玩一次挑戰排行榜吧！";
     $("btn-save-score").disabled = state.score <= 0;
     const nameInput = $("player-name");
-    const lastName = localStorage.getItem("lastPlayerName") || "";
+    const lastName = localStorage.getItem(nameKey(currentProfileId())) || currentProfile().name || "";
     nameInput.value = lastName;
     nameInput.readOnly = false;
 
@@ -831,13 +959,12 @@
     setTimeout(() => { try { nameInput.focus(); nameInput.select(); } catch (e) {} }, 80);
   }
 
-  // ---------- 排行榜 ----------
-  const LB_KEY = "typingGameLeaderboard_v1";
+  // ---------- 排行榜（依目前小朋友檔案分開） ----------
   const LB_MAX = 10;
 
   function loadLeaderboard() {
     try {
-      const raw = localStorage.getItem(LB_KEY);
+      const raw = localStorage.getItem(lbKey(currentProfileId()));
       if (raw) {
         const arr = JSON.parse(raw);
         if (Array.isArray(arr)) return arr;
@@ -847,7 +974,7 @@
   }
 
   function saveLeaderboard(list) {
-    try { localStorage.setItem(LB_KEY, JSON.stringify(list.slice(0, LB_MAX))); } catch (e) {}
+    try { localStorage.setItem(lbKey(currentProfileId()), JSON.stringify(list.slice(0, LB_MAX))); } catch (e) {}
   }
 
   function gradeLabel(id) {
@@ -924,7 +1051,7 @@
     list.sort((a, b) => b.score - a.score || (b.combo || 0) - (a.combo || 0) || (a.date > b.date ? 1 : -1));
     const trimmed = list.slice(0, LB_MAX);
     saveLeaderboard(trimmed);
-    localStorage.setItem("lastPlayerName", name);
+    localStorage.setItem(nameKey(currentProfileId()), name);
 
     state.lastResult.saved = true;
     $("name-entry").classList.add("saved");
@@ -998,6 +1125,7 @@
     }
     manageTarget = (state.source === "all" || state.source === "letters") ? "g1" : state.source;
     sel.value = manageTarget;
+    refreshProfileUI();
     renderWordList();
     show("manage");
   }
@@ -1177,6 +1305,7 @@
   }
 
   // 初始化
+  refreshProfileUI();
   refreshGradeDesc();
   refreshDiffUI();
 })();
