@@ -498,7 +498,49 @@
     n: { hand: "R", finger: "index" }, m: { hand: "R", finger: "index" },
     " ": { hand: "R", finger: "thumb" },
   };
-  const handFingerEls = { L: {}, R: {} };
+  // 外框上的指尖座標（1 = 一個鍵距）。路徑會真正經過這些點
+  const TIP = {
+    pinky: { x: 0, y: 0 },
+    ring: { x: 1, y: 0 },
+    middle: { x: 2, y: 0 },
+    index: { x: 3, y: 0 },
+    thumb: { x: 3.7, y: 1.46 },
+  };
+  const HAND_VB = { x: -0.58, y: -0.38, w: 4.75, h: 2.72 };
+  const HAND_PIVOT = 3;
+  const hands = { L: null, R: null };
+
+  function handOutlinePath() {
+    const hw = 0.15;
+    const base = 1.15;
+    let d = `M ${-hw} ${base}`;
+    [0, 1, 2, 3].forEach((x, i) => {
+      d += ` L ${x - hw} 0.36`;
+      d += ` C ${x - hw} 0.04, ${x} 0, ${x} 0`;
+      d += ` C ${x} 0, ${x + hw} 0.04, ${x + hw} 0.36`;
+      d += ` L ${x + hw} ${base}`;
+      if (i < 3) d += ` L ${x + 1 - hw} ${base}`;
+    });
+    d += " C 3.28 1.08, 3.48 1.28, 3.7 1.46";
+    d += " C 3.92 1.64, 3.68 1.82, 3.4 1.68";
+    d += " C 3.1 1.95, 2.15 2.12, 1.4 2.08";
+    d += " C 0.45 2.04, -0.12 1.72, -0.26 1.22";
+    d += ` C -0.34 0.98, ${-hw} ${base}, ${-hw} ${base} Z`;
+    return d;
+  }
+
+  function tipLocal(side, fingerId) {
+    const t = TIP[fingerId];
+    if (side === "R") return { x: HAND_PIVOT - t.x, y: t.y };
+    return { x: t.x, y: t.y };
+  }
+
+  function keyPitch() {
+    const a = keyElements.a && keyElements.a.getBoundingClientRect();
+    const s = keyElements.s && keyElements.s.getBoundingClientRect();
+    if (!a || !s || a.width < 2) return 0;
+    return (s.left + s.width / 2) - (a.left + a.width / 2);
+  }
 
   (function buildKeyboard() {
     const rows = ["qwertyuiop", "asdfghjkl", "zxcvbnm"];
@@ -538,124 +580,127 @@
     buildHandGuide();
   })();
 
-  /** 半透明左右手 SVG（手指可移動指向下一個鍵） */
+  /** 一整隻手的外框。只有正在按的那顆指尖對準按鍵，手掌和其他手指一起跟著移 */
   function buildHandGuide() {
     if (!handGuideEl) return;
     handGuideEl.innerHTML = "";
-    // viewBox 內手指「指尖」大約座標，用來對齊鍵盤鍵位
-    const left = {
-      side: "L",
-      className: "hand hand-left",
-      // 指尖 (cx, tipY)，掌心在下方
-      fingers: [
-        { id: "pinky",  tip: [28, 38],  base: [34, 118] },
-        { id: "ring",   tip: [52, 22],  base: [52, 118] },
-        { id: "middle", tip: [78, 14],  base: [72, 118] },
-        { id: "index",  tip: [108, 28], base: [96, 118] },
-        { id: "thumb",  tip: [148, 110], base: [120, 140] },
-      ],
-      palm: "M 28 118 C 28 150, 40 168, 78 172 C 118 176, 138 160, 142 132 C 144 118, 130 112, 112 118 C 96 122, 40 122, 28 118 Z",
-    };
-    const right = {
-      side: "R",
-      className: "hand hand-right",
-      fingers: [
-        { id: "index",  tip: [52, 28],  base: [64, 118] },
-        { id: "middle", tip: [82, 14],  base: [88, 118] },
-        { id: "ring",   tip: [108, 22], base: [108, 118] },
-        { id: "pinky",  tip: [132, 38], base: [126, 118] },
-        { id: "thumb",  tip: [12, 110], base: [40, 140] },
-      ],
-      palm: "M 132 118 C 132 150, 120 168, 82 172 C 42 176, 22 160, 18 132 C 16 118, 30 112, 48 118 C 64 122, 120 122, 132 118 Z",
-    };
-    [left, right].forEach((hand) => {
-      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-      svg.setAttribute("viewBox", "0 0 160 180");
-      svg.setAttribute("class", hand.className);
-      svg.dataset.hand = hand.side;
-      const palm = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      palm.setAttribute("d", hand.palm);
-      palm.setAttribute("class", "palm");
-      svg.appendChild(palm);
-      hand.fingers.forEach((f) => {
-        const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
-        g.setAttribute("class", "finger");
-        g.dataset.finger = f.id;
-        g.dataset.tipX = String(f.tip[0]);
-        g.dataset.tipY = String(f.tip[1]);
-        const digit = document.createElementNS("http://www.w3.org/2000/svg", "line");
-        digit.setAttribute("x1", f.base[0]);
-        digit.setAttribute("y1", f.base[1]);
-        digit.setAttribute("x2", f.tip[0]);
-        digit.setAttribute("y2", f.tip[1]);
-        digit.setAttribute("stroke-width", f.id === "thumb" ? "18" : "16");
-        digit.setAttribute("stroke-linecap", "round");
-        digit.setAttribute("class", "digit");
-        const tip = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-        tip.setAttribute("cx", f.tip[0]);
-        tip.setAttribute("cy", f.tip[1]);
-        tip.setAttribute("r", f.id === "thumb" ? "11" : "10");
-        tip.setAttribute("class", "tip");
-        g.appendChild(digit);
-        g.appendChild(tip);
-        svg.appendChild(g);
-        handFingerEls[hand.side][f.id] = g;
+    const ns = "http://www.w3.org/2000/svg";
+    const d = handOutlinePath();
+    ["L", "R"].forEach((side) => {
+      const wrap = document.createElement("div");
+      wrap.className = "hand hand-" + (side === "L" ? "left" : "right");
+      wrap.dataset.hand = side;
+      const svg = document.createElementNS(ns, "svg");
+      svg.setAttribute("class", "hand-svg");
+      svg.setAttribute("viewBox", `${HAND_VB.x} ${HAND_VB.y} ${HAND_VB.w} ${HAND_VB.h}`);
+      const g = document.createElementNS(ns, "g");
+      if (side === "R") g.setAttribute("transform", `translate(${HAND_PIVOT} 0) scale(-1 1)`);
+      const path = document.createElementNS(ns, "path");
+      path.setAttribute("d", d);
+      path.setAttribute("class", "hand-shape");
+      g.appendChild(path);
+      const marks = {};
+      Object.keys(TIP).forEach((id) => {
+        const c = document.createElementNS(ns, "circle");
+        c.setAttribute("cx", String(TIP[id].x));
+        c.setAttribute("cy", String(TIP[id].y));
+        c.setAttribute("r", id === "thumb" ? "0.1" : "0.12");
+        c.setAttribute("class", "tip-mark");
+        c.dataset.finger = id;
+        g.appendChild(c);
+        marks[id] = c;
       });
-      handGuideEl.appendChild(svg);
+      svg.appendChild(g);
+      wrap.appendChild(svg);
+      handGuideEl.appendChild(wrap);
+      hands[side] = { wrap, svg, marks };
     });
-    handGuideEl.classList.add("idle");
+  }
+
+  function guidePoint(el, xBias) {
+    const guide = handGuideEl.getBoundingClientRect();
+    const rect = el.getBoundingClientRect();
+    const bias = xBias == null ? 0.5 : xBias;
+    return {
+      x: rect.left + rect.width * bias - guide.left,
+      y: rect.top + rect.height * 0.28 - guide.top,
+    };
+  }
+
+  function sizeHand(hand) {
+    const pitch = keyPitch();
+    if (!pitch || !hand) return 0;
+    hand.svg.style.width = (HAND_VB.w * pitch) + "px";
+    hand.svg.style.height = (HAND_VB.h * pitch) + "px";
+    return pitch;
+  }
+
+  function slideHand(wrap, x, y) {
+    const prev = wrap._handPos;
+    wrap._handPos = { x, y };
+    if (wrap._handAnim) cancelAnimationFrame(wrap._handAnim);
+    const apply = (px, py) => {
+      wrap.style.transform = `translate(${px.toFixed(1)}px, ${py.toFixed(1)}px)`;
+    };
+    if (!prev || (Math.abs(prev.x - x) < 0.5 && Math.abs(prev.y - y) < 0.5)) {
+      apply(x, y);
+      return;
+    }
+    const start = performance.now();
+    function frame(now) {
+      const t = Math.min(1, (now - start) / 180);
+      const e = 1 - Math.pow(1 - t, 3);
+      apply(prev.x + (x - prev.x) * e, prev.y + (y - prev.y) * e);
+      if (t < 1) wrap._handAnim = requestAnimationFrame(frame);
+    }
+    wrap._handAnim = requestAnimationFrame(frame);
+  }
+
+  function placeHand(side, fingerId, keyEl, active) {
+    const hand = hands[side];
+    const pitch = sizeHand(hand);
+    if (!pitch || !keyEl) return;
+    const bias = fingerId === "thumb" ? (side === "L" ? 0.3 : 0.7) : 0.5;
+    const target = guidePoint(keyEl, bias);
+    const local = tipLocal(side, fingerId);
+    const tipX = (local.x - HAND_VB.x) * pitch;
+    const tipY = (local.y - HAND_VB.y) * pitch;
+    slideHand(hand.wrap, target.x - tipX, target.y - tipY);
+    hand.wrap.classList.toggle("active-hand", active);
+    hand.wrap.classList.toggle("rest-hand", !active);
+    Object.keys(hand.marks).forEach((id) => {
+      hand.marks[id].classList.toggle("on", active && id === fingerId);
+    });
   }
 
   function resetHandGuide() {
     if (!handGuideEl) return;
     handGuideEl.classList.add("idle");
-    handGuideEl.querySelectorAll(".hand").forEach((h) => {
-      h.classList.remove("active-hand", "dim-hand");
-    });
-    handGuideEl.querySelectorAll(".finger").forEach((f) => {
-      f.classList.remove("active", "pressing");
-      f.style.setProperty("--dx", "0px");
-      f.style.setProperty("--dy", "0px");
-      f.style.transform = "";
-    });
+    if (!keyPitch()) return;
+    placeHand("L", "index", keyElements.f, false);
+    placeHand("R", "index", keyElements.j, false);
   }
 
   function updateHandGuide(ch) {
     if (!handGuideEl || !keyboardWrap || !keyboardWrap.classList.contains("show")) return;
-    resetHandGuide();
-    if (ch == null) return;
-    const map = FINGER_MAP[ch === " " ? " " : String(ch).toLowerCase()];
-    const keyEl = ch === " " ? keyElements[" "] : keyElements[ch];
-    if (!map || !keyEl) return;
-
-    const fingerEl = handFingerEls[map.hand] && handFingerEls[map.hand][map.finger];
-    if (!fingerEl) return;
-
-    handGuideEl.classList.remove("idle");
-    handGuideEl.querySelectorAll(".hand").forEach((h) => {
-      if (h.dataset.hand === map.hand) h.classList.add("active-hand");
-      else h.classList.add("dim-hand");
-    });
-
-    // 把指尖移到目標鍵中心（相對 hand-guide）
-    const guideRect = handGuideEl.getBoundingClientRect();
-    const keyRect = keyEl.getBoundingClientRect();
-    const keyCx = keyRect.left + keyRect.width / 2 - guideRect.left;
-    const keyCy = keyRect.top + keyRect.height / 2 - guideRect.top;
-
-    const svg = fingerEl.ownerSVGElement;
-    const svgRect = svg.getBoundingClientRect();
-    const tipX = parseFloat(fingerEl.dataset.tipX);
-    const tipY = parseFloat(fingerEl.dataset.tipY);
-    // viewBox 0..160 / 0..180 → 螢幕座標
-    const tipScreenX = svgRect.left - guideRect.left + (tipX / 160) * svgRect.width;
-    const tipScreenY = svgRect.top - guideRect.top + (tipY / 180) * svgRect.height;
-
-    const dx = keyCx - tipScreenX;
-    const dy = keyCy - tipScreenY;
-    fingerEl.style.setProperty("--dx", dx.toFixed(1) + "px");
-    fingerEl.style.setProperty("--dy", dy.toFixed(1) + "px");
-    fingerEl.classList.add("active");
+    if (!keyPitch()) return;
+    const keyName = ch == null ? "" : (ch === " " ? " " : String(ch).toLowerCase());
+    const map = FINGER_MAP[keyName];
+    const keyEl = keyName === " " ? keyElements[" "] : keyElements[keyName];
+    const aimed = !!(map && keyEl);
+    handGuideEl.classList.toggle("idle", !aimed);
+    placeHand(
+      "L",
+      aimed && map.hand === "L" ? map.finger : "index",
+      aimed && map.hand === "L" ? keyEl : keyElements.f,
+      aimed && map.hand === "L"
+    );
+    placeHand(
+      "R",
+      aimed && map.hand === "R" ? map.finger : "index",
+      aimed && map.hand === "R" ? keyEl : keyElements.j,
+      aimed && map.hand === "R"
+    );
   }
   const isTouch = window.matchMedia("(pointer: coarse)").matches || "ontouchstart" in window;
 
@@ -1055,6 +1100,13 @@
     // 等鍵盤佈局完成後再對齊手指
     requestAnimationFrame(() => updateHandGuide(ch));
   }
+
+  window.addEventListener("resize", () => {
+    if (!keyboardWrap.classList.contains("show")) return;
+    const next = keyboardEl.querySelector(".key.next");
+    if (!next) { resetHandGuide(); return; }
+    updateHandGuide(next.classList.contains("space") ? " " : next.textContent.trim());
+  });
 
   /** 追蹤目標：鎖定中優先，否則最靠近底部（最緊急）的單字／句子 */
   function getTrackTarget() {

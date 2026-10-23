@@ -433,7 +433,7 @@ html, body {
   box-shadow: 0 0 14px rgba(255, 209, 102, 0.7);
 }
 
-/* 半透明左右手（蓋在鍵盤上但不擋點擊） */
+/* 整隻手外框一起移動，只有正在按的指尖落在鍵上 */
 #hand-guide {
   position: absolute;
   inset: 8px 6px calc(env(safe-area-inset-bottom) + 8px);
@@ -443,58 +443,34 @@ html, body {
 }
 #hand-guide .hand {
   position: absolute;
-  bottom: 8%;
-  width: 48%;
-  height: 92%;
-  opacity: 0.42;
-  transition: opacity 0.25s ease;
+  left: 0;
+  top: 0;
+  overflow: visible;
+  pointer-events: none;
+  opacity: 0.9;
 }
-#hand-guide .hand-left { left: 1%; }
-#hand-guide .hand-right { right: 1%; }
-#hand-guide.idle .hand { opacity: 0.28; }
-#hand-guide .hand.active-hand { opacity: 0.72; }
-#hand-guide .hand.dim-hand { opacity: 0.18; }
-#hand-guide svg {
-  width: 100%;
-  height: 100%;
+#hand-guide .hand.rest-hand { opacity: 0.38; }
+#hand-guide .hand.active-hand { opacity: 1; z-index: 2; }
+#hand-guide .hand-svg {
+  display: block;
   overflow: visible;
 }
-#hand-guide .palm {
-  fill: rgba(255, 210, 170, 0.55);
-  stroke: rgba(255, 255, 255, 0.35);
-  stroke-width: 2;
+#hand-guide .hand-shape {
+  fill: rgba(255, 220, 186, 0.07);
+  stroke: rgba(255, 244, 230, 0.92);
+  stroke-width: 0.05;
+  stroke-linejoin: round;
+  stroke-linecap: round;
 }
-#hand-guide .finger {
-  transform: translate(var(--dx, 0px), var(--dy, 0px));
-  transform-box: fill-box;
-  transform-origin: 50% 100%;
-  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+#hand-guide .hand.active-hand .hand-shape {
+  stroke: rgba(255, 226, 170, 0.98);
+  stroke-width: 0.058;
 }
-#hand-guide .finger .digit {
-  fill: none;
-  stroke: rgba(255, 210, 170, 0.78);
-}
-#hand-guide .finger .tip {
-  fill: rgba(255, 230, 200, 0.88);
-  stroke: rgba(255, 255, 255, 0.45);
-  stroke-width: 1.2;
-}
-#hand-guide .finger.active .digit {
-  stroke: rgba(255, 209, 102, 0.98);
-  filter: drop-shadow(0 0 6px rgba(255, 209, 102, 0.85));
-}
-#hand-guide .finger.active .tip {
+#hand-guide .tip-mark { fill: transparent; stroke: none; }
+#hand-guide .tip-mark.on {
   fill: #ffd166;
   stroke: #fff;
-  stroke-width: 2;
-  filter: drop-shadow(0 0 10px rgba(255, 209, 102, 0.95));
-}
-#hand-guide .finger.active {
-  animation: finger-tap 0.55s ease-in-out infinite;
-}
-@keyframes finger-tap {
-  0%, 100% { transform: translate(var(--dx, 0px), var(--dy, 0px)) scale(1); }
-  50% { transform: translate(var(--dx, 0px), calc(var(--dy, 0px) - 7px)) scale(1.04); }
+  stroke-width: 0.028;
 }
 
 /* ===== 單字表選擇與管理 ===== */
