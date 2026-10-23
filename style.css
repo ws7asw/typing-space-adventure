@@ -456,21 +456,28 @@ html, body {
   overflow: visible;
 }
 #hand-guide .hand-shape {
-  fill: rgba(255, 220, 186, 0.07);
-  stroke: rgba(255, 244, 230, 0.92);
-  stroke-width: 0.05;
+  fill: rgba(255, 214, 170, 0.18);
+  stroke: rgba(255, 236, 210, 0.88);
+  stroke-width: 0.045;
   stroke-linejoin: round;
   stroke-linecap: round;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.25));
 }
 #hand-guide .hand.active-hand .hand-shape {
-  stroke: rgba(255, 226, 170, 0.98);
-  stroke-width: 0.058;
+  fill: rgba(255, 214, 170, 0.28);
+  stroke: rgba(255, 220, 150, 0.98);
+  stroke-width: 0.055;
+}
+#hand-guide .hand.rest-hand .hand-shape {
+  fill: rgba(200, 210, 230, 0.10);
+  stroke: rgba(210, 220, 240, 0.55);
 }
 #hand-guide .tip-mark { fill: transparent; stroke: none; }
 #hand-guide .tip-mark.on {
   fill: #ffd166;
   stroke: #fff;
-  stroke-width: 0.028;
+  stroke-width: 0.03;
+  filter: drop-shadow(0 0 6px rgba(255, 209, 102, 0.9));
 }
 
 /* ===== 單字表選擇與管理 ===== */
