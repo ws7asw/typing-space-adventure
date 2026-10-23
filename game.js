@@ -12,6 +12,8 @@
   const playfield = $("playfield");
   const ship = $("ship");
   const keyboardEl = $("keyboard");
+  const keyboardWrap = $("keyboard-wrap");
+  const handGuideEl = $("hand-guide");
   const shipControls = $("ship-controls");
   const scoreEl = $("score");
   const stageEl = $("stage");
@@ -359,23 +361,32 @@
       window.speechSynthesis.cancel();
     } catch (e) {}
   }
-  function speakLetter(ch) {
-    if (!state.voiceOn || !ch || ch === " ") return;
+  function speakUtterance(text, rate) {
+    if (!state.voiceOn || !text) return;
     if (!window.speechSynthesis) return;
     try {
       window.speechSynthesis.cancel();
-      // 用小寫送出，避免唸成 "capital A"；畫面仍可同時顯示大小寫
-      const letter = String(ch).toLowerCase();
-      if (!/^[a-z]$/.test(letter)) return;
-      const u = new SpeechSynthesisUtterance(letter);
+      const u = new SpeechSynthesisUtterance(text);
       u.lang = "en-US";
-      u.rate = 0.85;
+      u.rate = rate;
       u.pitch = 1.05;
       u.volume = 1;
       const voice = cachedEnVoice || pickEnglishVoice();
       if (voice) u.voice = voice;
       window.speechSynthesis.speak(u);
     } catch (e) {}
+  }
+  function speakLetter(ch) {
+    if (!ch || ch === " ") return;
+    // 用小寫送出，避免唸成 "capital A"；畫面仍可同時顯示大小寫
+    const letter = String(ch).toLowerCase();
+    if (!/^[a-z]$/.test(letter)) return;
+    speakUtterance(letter, 0.85);
+  }
+  function speakWord(text) {
+    const phrase = String(text || "").trim();
+    if (!phrase) return;
+    speakUtterance(phrase, phrase.length > 24 ? 1 : 0.92);
   }
 
   function show(name) {
@@ -468,6 +479,27 @@
 
   // ---------- 虛擬鍵盤 ----------
   const keyElements = {};
+  // 標準指法：哪隻手／哪根手指
+  const FINGER_MAP = {
+    q: { hand: "L", finger: "pinky" }, w: { hand: "L", finger: "ring" },
+    e: { hand: "L", finger: "middle" }, r: { hand: "L", finger: "index" },
+    t: { hand: "L", finger: "index" },
+    y: { hand: "R", finger: "index" }, u: { hand: "R", finger: "index" },
+    i: { hand: "R", finger: "middle" }, o: { hand: "R", finger: "ring" },
+    p: { hand: "R", finger: "pinky" },
+    a: { hand: "L", finger: "pinky" }, s: { hand: "L", finger: "ring" },
+    d: { hand: "L", finger: "middle" }, f: { hand: "L", finger: "index" },
+    g: { hand: "L", finger: "index" },
+    h: { hand: "R", finger: "index" }, j: { hand: "R", finger: "index" },
+    k: { hand: "R", finger: "middle" }, l: { hand: "R", finger: "ring" },
+    z: { hand: "L", finger: "pinky" }, x: { hand: "L", finger: "ring" },
+    c: { hand: "L", finger: "middle" }, v: { hand: "L", finger: "index" },
+    b: { hand: "L", finger: "index" },
+    n: { hand: "R", finger: "index" }, m: { hand: "R", finger: "index" },
+    " ": { hand: "R", finger: "thumb" },
+  };
+  const handFingerEls = { L: {}, R: {} };
+
   (function buildKeyboard() {
     const rows = ["qwertyuiop", "asdfghjkl", "zxcvbnm"];
     rows.forEach((row) => {
@@ -503,7 +535,128 @@
     keyElements[" "] = spaceKey;
     spaceRow.appendChild(spaceKey);
     keyboardEl.appendChild(spaceRow);
+    buildHandGuide();
   })();
+
+  /** 半透明左右手 SVG（手指可移動指向下一個鍵） */
+  function buildHandGuide() {
+    if (!handGuideEl) return;
+    handGuideEl.innerHTML = "";
+    // viewBox 內手指「指尖」大約座標，用來對齊鍵盤鍵位
+    const left = {
+      side: "L",
+      className: "hand hand-left",
+      // 指尖 (cx, tipY)，掌心在下方
+      fingers: [
+        { id: "pinky",  tip: [28, 38],  base: [34, 118] },
+        { id: "ring",   tip: [52, 22],  base: [52, 118] },
+        { id: "middle", tip: [78, 14],  base: [72, 118] },
+        { id: "index",  tip: [108, 28], base: [96, 118] },
+        { id: "thumb",  tip: [148, 110], base: [120, 140] },
+      ],
+      palm: "M 28 118 C 28 150, 40 168, 78 172 C 118 176, 138 160, 142 132 C 144 118, 130 112, 112 118 C 96 122, 40 122, 28 118 Z",
+    };
+    const right = {
+      side: "R",
+      className: "hand hand-right",
+      fingers: [
+        { id: "index",  tip: [52, 28],  base: [64, 118] },
+        { id: "middle", tip: [82, 14],  base: [88, 118] },
+        { id: "ring",   tip: [108, 22], base: [108, 118] },
+        { id: "pinky",  tip: [132, 38], base: [126, 118] },
+        { id: "thumb",  tip: [12, 110], base: [40, 140] },
+      ],
+      palm: "M 132 118 C 132 150, 120 168, 82 172 C 42 176, 22 160, 18 132 C 16 118, 30 112, 48 118 C 64 122, 120 122, 132 118 Z",
+    };
+    [left, right].forEach((hand) => {
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("viewBox", "0 0 160 180");
+      svg.setAttribute("class", hand.className);
+      svg.dataset.hand = hand.side;
+      const palm = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      palm.setAttribute("d", hand.palm);
+      palm.setAttribute("class", "palm");
+      svg.appendChild(palm);
+      hand.fingers.forEach((f) => {
+        const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        g.setAttribute("class", "finger");
+        g.dataset.finger = f.id;
+        g.dataset.tipX = String(f.tip[0]);
+        g.dataset.tipY = String(f.tip[1]);
+        const digit = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        digit.setAttribute("x1", f.base[0]);
+        digit.setAttribute("y1", f.base[1]);
+        digit.setAttribute("x2", f.tip[0]);
+        digit.setAttribute("y2", f.tip[1]);
+        digit.setAttribute("stroke-width", f.id === "thumb" ? "18" : "16");
+        digit.setAttribute("stroke-linecap", "round");
+        digit.setAttribute("class", "digit");
+        const tip = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        tip.setAttribute("cx", f.tip[0]);
+        tip.setAttribute("cy", f.tip[1]);
+        tip.setAttribute("r", f.id === "thumb" ? "11" : "10");
+        tip.setAttribute("class", "tip");
+        g.appendChild(digit);
+        g.appendChild(tip);
+        svg.appendChild(g);
+        handFingerEls[hand.side][f.id] = g;
+      });
+      handGuideEl.appendChild(svg);
+    });
+    handGuideEl.classList.add("idle");
+  }
+
+  function resetHandGuide() {
+    if (!handGuideEl) return;
+    handGuideEl.classList.add("idle");
+    handGuideEl.querySelectorAll(".hand").forEach((h) => {
+      h.classList.remove("active-hand", "dim-hand");
+    });
+    handGuideEl.querySelectorAll(".finger").forEach((f) => {
+      f.classList.remove("active", "pressing");
+      f.style.setProperty("--dx", "0px");
+      f.style.setProperty("--dy", "0px");
+      f.style.transform = "";
+    });
+  }
+
+  function updateHandGuide(ch) {
+    if (!handGuideEl || !keyboardWrap || !keyboardWrap.classList.contains("show")) return;
+    resetHandGuide();
+    if (ch == null) return;
+    const map = FINGER_MAP[ch === " " ? " " : String(ch).toLowerCase()];
+    const keyEl = ch === " " ? keyElements[" "] : keyElements[ch];
+    if (!map || !keyEl) return;
+
+    const fingerEl = handFingerEls[map.hand] && handFingerEls[map.hand][map.finger];
+    if (!fingerEl) return;
+
+    handGuideEl.classList.remove("idle");
+    handGuideEl.querySelectorAll(".hand").forEach((h) => {
+      if (h.dataset.hand === map.hand) h.classList.add("active-hand");
+      else h.classList.add("dim-hand");
+    });
+
+    // 把指尖移到目標鍵中心（相對 hand-guide）
+    const guideRect = handGuideEl.getBoundingClientRect();
+    const keyRect = keyEl.getBoundingClientRect();
+    const keyCx = keyRect.left + keyRect.width / 2 - guideRect.left;
+    const keyCy = keyRect.top + keyRect.height / 2 - guideRect.top;
+
+    const svg = fingerEl.ownerSVGElement;
+    const svgRect = svg.getBoundingClientRect();
+    const tipX = parseFloat(fingerEl.dataset.tipX);
+    const tipY = parseFloat(fingerEl.dataset.tipY);
+    // viewBox 0..160 / 0..180 → 螢幕座標
+    const tipScreenX = svgRect.left - guideRect.left + (tipX / 160) * svgRect.width;
+    const tipScreenY = svgRect.top - guideRect.top + (tipY / 180) * svgRect.height;
+
+    const dx = keyCx - tipScreenX;
+    const dy = keyCy - tipScreenY;
+    fingerEl.style.setProperty("--dx", dx.toFixed(1) + "px");
+    fingerEl.style.setProperty("--dy", dy.toFixed(1) + "px");
+    fingerEl.classList.add("active");
+  }
   const isTouch = window.matchMedia("(pointer: coarse)").matches || "ontouchstart" in window;
 
   // ================= 遊戲流程 =================
@@ -536,9 +689,8 @@
     updateMissileUI();
     show("game");
     shipControls.classList.add("show");
-    // 字母練習／有句子／觸控時顯示鍵盤，方便對照位置
-    if (isLetterMode() || isTouch || state.level >= 3) keyboardEl.classList.add("show");
-    else keyboardEl.classList.remove("show");
+    // 一律顯示鍵盤＋半透明指法手，方便學正確手指
+    keyboardWrap.classList.add("show");
     state.lastTime = performance.now();
     spawnWord();
     highlightNextKey();
@@ -562,8 +714,9 @@
     state.running = false; state.paused = false;
     cancelAnimationFrame(state.rafId);
     screens.pause.classList.remove("active");
-    keyboardEl.classList.remove("show");
+    keyboardWrap.classList.remove("show");
     shipControls.classList.remove("show");
+    resetHandGuide();
     refreshGradeDesc();
     show("start");
   }
@@ -800,7 +953,12 @@
         if (!w.cleared && w.text[0] === ch && (!candidate || w.y > candidate.y)) candidate = w;
       });
       if (candidate) { state.active = candidate; candidate.el.classList.add("locked"); }
-      else { wrongKey(); return; }
+      else {
+        // 字母練習：打錯也唸，把按下的鍵和字母名稱對上
+        if (isLetterMode()) speakLetter(ch);
+        wrongKey();
+        return;
+      }
     }
     const w = state.active;
     if (w.text[w.typed] === ch) {
@@ -818,6 +976,7 @@
       highlightNextKey();
       if (w.typed >= w.text.length) clearWord(w);
     } else {
+      if (isLetterMode()) speakLetter(ch);
       wrongKey();
     }
   }
@@ -840,6 +999,8 @@
     const points = (10 + w.text.length) * Math.max(1, state.combo);
     state.score += points;
     sfx.clear();
+    // 打完單字或句子再念整句，把拼法和讀音接起來；字母練習剛念過該字母
+    if (!opts.fromMissile && !isLetterMode()) speakWord(w.text);
     explode(w);
     showFloaty(w.x, w.y, "+" + points);
     w.el.classList.add("pop");
@@ -885,9 +1046,14 @@
       state.words.forEach((w) => { if (!w.cleared && (!lowest || w.y > lowest.y)) lowest = w; });
       if (lowest) ch = lowest.text[0];
     }
-    if (ch == null) return;
+    if (ch == null) {
+      resetHandGuide();
+      return;
+    }
     const key = ch === " " ? keyElements[" "] : keyElements[ch];
     if (key) key.classList.add("next");
+    // 等鍵盤佈局完成後再對齊手指
+    requestAnimationFrame(() => updateHandGuide(ch));
   }
 
   /** 追蹤目標：鎖定中優先，否則最靠近底部（最緊急）的單字／句子 */
@@ -988,8 +1154,9 @@
   function gameOver() {
     state.running = false;
     cancelAnimationFrame(state.rafId);
-    keyboardEl.classList.remove("show");
+    keyboardWrap.classList.remove("show");
     shipControls.classList.remove("show");
+    resetHandGuide();
     document.querySelectorAll(".missile, .missile-beam").forEach((el) => el.remove());
     state.missiles = [];
 

@@ -16,7 +16,7 @@
   <link rel="apple-touch-icon" href="icon.svg" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
 
-  <link rel="stylesheet" href="style.css?v=20261023" />
+  <link rel="stylesheet" href="style.css?v=20261023c" />
 </head>
 <body>
   <div id="stars"></div>
@@ -80,7 +80,7 @@
           <button class="chip active" data-voice="on">開 On</button>
           <button class="chip" data-voice="off">關 Off</button>
         </div>
-        <p class="grade-desc">開：打對字母時用英文念出，方便學發音</p>
+        <p class="grade-desc">開：字母練習每按一鍵都念（打錯也念）；打單字只念打對的字母，打完再念整字</p>
       </div>
 
       <div class="field">
@@ -94,7 +94,7 @@
 
       <button id="btn-start" class="big-btn">開始遊戲 ▶</button>
       <button id="btn-manage" class="ghost-btn">📝 管理單字表</button>
-      <p class="hint-text">💡 可先選「字母練習」熟悉鍵盤位置（同時顯示大小寫）。打對字母會用英文唸出。空白鍵／發射鈕：緊急飛彈每局只有 3 發。</p>
+      <p class="hint-text">💡 可先選「字母練習」熟悉鍵盤。下方半透明左右手會指出該用哪根手指。字母練習：每按一鍵都念，打對才消除。打單字：只念打對的字母，打完念整字。空白鍵／發射鈕：緊急飛彈每局 3 發。</p>
     </div>
   </section>
 
@@ -118,8 +118,11 @@
       <button type="button" id="btn-fire" class="ctrl-btn fire wide" aria-label="發射">🔥 緊急飛彈 ×3</button>
     </div>
 
-    <!-- 螢幕虛擬鍵盤 -->
-    <div id="keyboard" aria-hidden="true"></div>
+    <!-- 螢幕虛擬鍵盤＋半透明指法手勢 -->
+    <div id="keyboard-wrap">
+      <div id="hand-guide" aria-hidden="true"></div>
+      <div id="keyboard" aria-hidden="true"></div>
+    </div>
   </section>
 
   <!-- 暫停畫面 -->
@@ -208,6 +211,6 @@
 
   <script src="words.js?v=20260902c"></script>
   <script src="sentences.js?v=20260727b"></script>
-  <script src="game.js?v=20261023b"></script>
+  <script src="game.js?v=20261023e"></script>
 </body>
 </html>
