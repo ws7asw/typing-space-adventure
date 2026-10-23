@@ -16,7 +16,7 @@
   <link rel="apple-touch-icon" href="icon.svg" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
 
-  <link rel="stylesheet" href="style.css?v=20260906b" />
+  <link rel="stylesheet" href="style.css?v=20261023" />
 </head>
 <body>
   <div id="stars"></div>
@@ -75,6 +75,15 @@
       </div>
 
       <div class="field">
+        <label>打字唸字母 Voice</label>
+        <div class="btn-group" id="voice-group">
+          <button class="chip active" data-voice="on">開 On</button>
+          <button class="chip" data-voice="off">關 Off</button>
+        </div>
+        <p class="grade-desc">開：打對字母時用英文念出，方便學發音</p>
+      </div>
+
+      <div class="field">
         <label>分數越高越快 Speed Up</label>
         <div class="btn-group" id="speedup-group">
           <button class="chip active" data-speedup="on">開 On</button>
@@ -85,7 +94,7 @@
 
       <button id="btn-start" class="big-btn">開始遊戲 ▶</button>
       <button id="btn-manage" class="ghost-btn">📝 管理單字表</button>
-      <p class="hint-text">💡 可先選「字母練習」熟悉鍵盤位置。打字消單字／句子；火箭會自動對準。空白鍵／發射鈕：緊急飛彈，每局只有 3 發，用完就沒了，危急時再使用！</p>
+      <p class="hint-text">💡 可先選「字母練習」熟悉鍵盤位置（同時顯示大小寫）。打對字母會用英文唸出。空白鍵／發射鈕：緊急飛彈每局只有 3 發。</p>
     </div>
   </section>
 
@@ -199,6 +208,6 @@
 
   <script src="words.js?v=20260902c"></script>
   <script src="sentences.js?v=20260727b"></script>
-  <script src="game.js?v=20260906b"></script>
+  <script src="game.js?v=20261023"></script>
 </body>
 </html>

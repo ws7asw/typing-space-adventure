@@ -212,7 +212,7 @@
   // ---------- 遊戲狀態 ----------
   const state = {
     running: false, paused: false,
-    source: "g1", level: 3, hint: true, speedUp: true,
+    source: "g1", level: 3, hint: true, voiceOn: true, speedUp: true,
     score: 0, stage: 1, lives: 3, combo: 0, maxCombo: 0,
     wordsCleared: 0, keysTyped: 0, keysCorrect: 0,
     words: [], active: null, pool: [],
@@ -332,6 +332,49 @@
     hit: () => beep(440, 0.06, "triangle", 0.1),
   };
 
+  // ---------- 唸字母（Web Speech API） ----------
+  let cachedEnVoice = null;
+  function pickEnglishVoice() {
+    if (!window.speechSynthesis) return null;
+    const voices = window.speechSynthesis.getVoices() || [];
+    if (!voices.length) return null;
+    cachedEnVoice =
+      voices.find((v) => /^en-US/i.test(v.lang) && /samantha|jenny|aria|google/i.test(v.name)) ||
+      voices.find((v) => /^en-US/i.test(v.lang)) ||
+      voices.find((v) => /^en/i.test(v.lang)) ||
+      null;
+    return cachedEnVoice;
+  }
+  if (typeof window !== "undefined" && window.speechSynthesis) {
+    window.speechSynthesis.addEventListener("voiceschanged", () => { cachedEnVoice = null; pickEnglishVoice(); });
+  }
+  function unlockSpeech() {
+    if (!window.speechSynthesis) return;
+    try {
+      pickEnglishVoice();
+      // 部分行動瀏覽器需在使用者手勢內先 speak 一次才會出聲
+      const warm = new SpeechSynthesisUtterance(" ");
+      warm.volume = 0;
+      window.speechSynthesis.speak(warm);
+      window.speechSynthesis.cancel();
+    } catch (e) {}
+  }
+  function speakLetter(ch) {
+    if (!state.voiceOn || !ch || ch === " ") return;
+    if (!window.speechSynthesis) return;
+    try {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(String(ch).toUpperCase());
+      u.lang = "en-US";
+      u.rate = 0.85;
+      u.pitch = 1.05;
+      u.volume = 1;
+      const voice = cachedEnVoice || pickEnglishVoice();
+      if (voice) u.voice = voice;
+      window.speechSynthesis.speak(u);
+    } catch (e) {}
+  }
+
   function show(name) {
     Object.values(screens).forEach((s) => s.classList.remove("active"));
     screens[name].classList.add("active");
@@ -383,6 +426,13 @@
     document.querySelectorAll("#hint-group .chip").forEach((c) => c.classList.remove("active"));
     btn.classList.add("active");
     state.hint = btn.dataset.hint === "on";
+  });
+  $("voice-group").addEventListener("click", (e) => {
+    const btn = e.target.closest(".chip");
+    if (!btn) return;
+    document.querySelectorAll("#voice-group .chip").forEach((c) => c.classList.remove("active"));
+    btn.classList.add("active");
+    state.voiceOn = btn.dataset.voice === "on";
   });
   $("speedup-group").addEventListener("click", (e) => {
     const btn = e.target.closest(".chip");
@@ -461,6 +511,7 @@
       return;
     }
     if (!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+    unlockSpeech();
 
     const sp = difficultyParams(state.level);
     Object.assign(state, {
@@ -684,11 +735,21 @@
     const text = raw.toLowerCase();
     const el = document.createElement("div");
     el.className = "word" + (isSentence ? " sentence" : "") + (isLetterMode() ? " letter-drill" : "");
-    const display = isLetterMode() ? raw.toUpperCase() : raw;
-    const enHtml = `<span class="en">${display.split("").map((c) => {
-      if (c === " ") return `<span class="sp"> </span>`;
-      return `<span>${escapeHtml(c)}</span>`;
-    }).join("")}</span>`;
+    let enHtml;
+    if (isLetterMode()) {
+      // 字母練習：同時顯示大寫＋小寫（打字仍認小寫鍵）
+      const up = escapeHtml(raw.toUpperCase());
+      const lo = escapeHtml(raw.toLowerCase());
+      enHtml =
+        `<span class="en"><span>${up}</span></span>` +
+        `<span class="case-lo" aria-hidden="true">${lo}</span>`;
+    } else {
+      const display = raw;
+      enHtml = `<span class="en">${display.split("").map((c) => {
+        if (c === " ") return `<span class="sp"> </span>`;
+        return `<span>${escapeHtml(c)}</span>`;
+      }).join("")}</span>`;
+    }
     const zhHtml = state.hint ? `<span class="zh">${escapeHtml(data.zh || "")}</span>` : "";
     el.innerHTML = enHtml + zhHtml;
 
@@ -742,9 +803,15 @@
     if (w.text[w.typed] === ch) {
       state.keysCorrect++;
       w.letters[w.typed].classList.add("done");
+      // 字母練習：大小寫一起標示完成
+      if (isLetterMode()) {
+        const lo = w.el.querySelector(".case-lo");
+        if (lo) lo.classList.add("done");
+      }
       w.typed++;
       updateCursor(w);
       sfx.key();
+      speakLetter(ch);
       highlightNextKey();
       if (w.typed >= w.text.length) clearWord(w);
     } else {
