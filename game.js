@@ -364,7 +364,10 @@
     if (!window.speechSynthesis) return;
     try {
       window.speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(String(ch).toUpperCase());
+      // 用小寫送出，避免唸成 "capital A"；畫面仍可同時顯示大小寫
+      const letter = String(ch).toLowerCase();
+      if (!/^[a-z]$/.test(letter)) return;
+      const u = new SpeechSynthesisUtterance(letter);
       u.lang = "en-US";
       u.rate = 0.85;
       u.pitch = 1.05;
